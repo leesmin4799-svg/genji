@@ -322,4 +322,195 @@ with tab3:
     st.subheader("✍️ 내가 느낀 ‘모노노아와레’의 순간 제출하기")
     st.markdown("1단계의 원문 사유와 2단계 무라사키 시키부와의 대화를 바탕으로, **여러분 자신의 삶에서 ‘모노노아와레’를 느꼈던 순간**을 작성해 제출해 주세요.")
 
-    with st.form("submission_form", clear_on_submit
+    with st.form("submission_form", clear_on_submit=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            student_id = st.text_input("학번 *", placeholder="예: 202300000")
+        with col2:
+            student_name = st.text_input("이름 *", placeholder="예: 홍길동")
+
+        topic_tag = st.selectbox(
+            "가장 깊이 공감한 작품 장면을 선택해 주세요",
+            ["기리쓰보 (사랑과 이별)", "와카무라사키 (그리움과 순수함)", "스마 (고독과 자연의 위로)", "미노리·마보로시 (이슬 같은 삶과 무상함)", "일상 속 나만의 아와레"]
+        )
+
+        final_reflection = st.text_area(
+            "내가 생각하는 모노노아와레, 그리고 삶에서 그 정서를 느꼈던 순간 *",
+            height=220,
+            placeholder="무라사키 시키부와의 대화를 통해 깨달은 점과, 내 일상 속에서 덧없지만 그렇기에 더 아름답고 애틋했던 순간을 구체적으로 적어 주세요."
+        )
+
+        share_gallery = st.checkbox("익명 감상 갤러리에 내 글을 공유합니다 (학번과 실명은 공개되지 않으며 헤이안 풍 별칭으로 게시됩니다)", value=True)
+
+        submitted = st.form_submit_button("🌸 최종 답변 제출하기", use_container_width=True)
+
+        if submitted:
+            if not student_id.strip() or not student_name.strip() or not final_reflection.strip():
+                st.error("학번, 이름, 그리고 최종 성찰 내용을 모두 입력해 주세요.")
+            else:
+                submissions = load_submissions()
+                chat_summary = "\n".join([
+                    f"[{'학생' if m['role']=='user' else '무라사키 시키부'}] {m['content']}"
+                    for m in st.session_state.messages[1:]
+                ])
+                new_entry = {
+                    "id": datetime.now().strftime("%Y%m%d%H%M%S%f"),
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "student_id": student_id.strip(),
+                    "student_name": student_name.strip(),
+                    "penname": random.choice(PENNAMES),
+                    "topic_tag": topic_tag,
+                    "thought_memo": st.session_state.thought_memo,
+                    "final_reflection": final_reflection.strip(),
+                    "chat_count": len([m for m in st.session_state.messages if m["role"] == "user"]),
+                    "chat_log": chat_summary if chat_summary else "(대화 내역 없음)",
+                    "share_gallery": share_gallery,
+                    "likes": 0
+                }
+                submissions.append(new_entry)
+                save_submissions(submissions)
+                st.success("✅ 최종 답변이 성공적으로 제출되었습니다! '4. 모노노아와레 갤러리' 탭에서 학우들의 생각도 함께 감상해 보세요.")
+
+# ==========================================
+# TAB 4: 모노노아와레 익명 감상 갤러리
+# ==========================================
+with tab4:
+    st.subheader("🏮 모노노아와레 익명 감상 갤러리 (色紙 ギャラリー)")
+    st.caption("학우들이 삶 속에서 포착한 ‘모노노아와레’의 순간들입니다. 마음에 울림을 주는 글에 ‘🌸 아와레 공감’을 눌러 보세요.")
+
+    submissions = load_submissions()
+    public_posts = [s for s in submissions if s.get("share_gallery", True)]
+
+    f_col1, f_col2 = st.columns([2, 1])
+    with f_col1:
+        selected_tag = st.selectbox(
+            "주제별 모아보기",
+            ["전체 보기", "기리쓰보 (사랑과 이별)", "와카무라사키 (그리움과 순수함)", "스마 (고독과 자연의 위로)", "미노리·마보로시 (이슬 같은 삶과 무상함)", "일상 속 나만의 아와레"]
+        )
+    with f_col2:
+        sort_order = st.radio("정렬 기준", ["최신순", "🌸 공감순"], horizontal=True)
+
+    if selected_tag != "전체 보기":
+        public_posts = [p for p in public_posts if p.get("topic_tag") == selected_tag]
+
+    if sort_order == "최신순":
+        public_posts = sorted(public_posts, key=lambda x: x.get("timestamp", ""), reverse=True)
+    else:
+        public_posts = sorted(public_posts, key=lambda x: x.get("likes", 0), reverse=True)
+
+    if not public_posts:
+        st.info("아직 게시된 감상글이 없습니다. 첫 번째로 모노노아와레의 순간을 남겨 보세요!")
+    else:
+        cols = st.columns(2)
+        for idx, post in enumerate(public_posts):
+            with cols[idx % 2]:
+                st.markdown(f"""
+                <div class="gallery-card">
+                    <div>
+                        <span class="tag-badge">{post.get('topic_tag', '모노노아와레')}</span>
+                        <span style="color:#999; font-size:0.8em;">{post.get('timestamp', '')[:16]}</span>
+                    </div>
+                    <div style="margin-top:8px; margin-bottom:12px;">
+                        <span class="penname">✒️ {post.get('penname', '이름 모를 가인')}</span>
+                    </div>
+                    <div style="white-space: pre-wrap; line-height: 1.65; color: #2c2233;">{post.get('final_reflection', '')}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                b_col1, b_col2 = st.columns([1, 2])
+                post_id = post.get("id")
+                already_liked = post_id in st.session_state.liked_posts
+                like_label = f"🌸 아와레 공감 ({post.get('likes', 0)})"
+
+                with b_col1:
+                    if st.button(like_label, key=f"like_{post_id}", disabled=already_liked):
+                        for item in submissions:
+                            if item.get("id") == post_id:
+                                item["likes"] = item.get("likes", 0) + 1
+                                break
+                        save_submissions(submissions)
+                        st.session_state.liked_posts.add(post_id)
+                        st.rerun()
+
+                with b_col2:
+                    if post.get("chat_log") and post.get("chat_log") != "(대화 내역 없음)":
+                        with st.expander("💬 무라사키 시키부와의 문답 보기"):
+                            st.text(post.get("chat_log"))
+
+# ==========================================
+# TAB 5: 관리자 페이지 (비밀번호: bidan)
+# ==========================================
+with tab5:
+    st.subheader("🔒 교수자 전용 관리 페이지")
+    admin_pw = st.text_input("관리자 비밀번호를 입력하세요", type="password")
+
+    if admin_pw == "bidan":
+        st.success("인증되었습니다. 학생들의 제출 현황을 확인하고 엑셀 파일로 다운로드할 수 있습니다.")
+        submissions = load_submissions()
+
+        if not submissions:
+            st.warning("아직 제출된 학생 데이터가 없습니다.")
+        else:
+            df = pd.DataFrame(submissions)
+            display_cols = {
+                "timestamp": "제출일시",
+                "student_id": "학번",
+                "student_name": "이름",
+                "topic_tag": "선택장면",
+                "thought_memo": "1단계 사유메모",
+                "chat_count": "질문횟수",
+                "final_reflection": "최종답변(모노노아와레의 순간)",
+                "likes": "갤러리 공감수",
+                "chat_log": "무라사키 시키부 대화록"
+            }
+            export_df = df[[c for c in display_cols.keys() if c in df.columns]].rename(columns=display_cols)
+
+            # 검색 필터
+            search_kw = st.text_input("🔍 학번 또는 이름으로 검색")
+            if search_kw:
+                export_df = export_df[
+                    export_df["학번"].str.contains(search_kw, na=False) |
+                    export_df["이름"].str.contains(search_kw, na=False)
+                ]
+
+            st.dataframe(export_df, use_container_width=True)
+
+            # 엑셀(.xlsx) 변환 및 다운로드
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                export_df.to_excel(writer, index=False, sheet_name="모노노아와레_제출현황")
+            excel_data = output.getvalue()
+
+            d_col1, d_col2 = st.columns(2)
+            with d_col1:
+                st.download_button(
+                    label="📥 전체 제출 내역 엑셀(.xlsx) 다운로드",
+                    data=excel_data,
+                    file_name=f"겐지모노가타리_모노노아와레_제출현황_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with d_col2:
+                csv_data = export_df.to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    label="📄 CSV 파일 다운로드",
+                    data=csv_data,
+                    file_name=f"겐지모노가타리_모노노아와레_제출현황_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+            # 개별 항목 삭제 기능
+            st.divider()
+            del_options = {f"{s['student_id']} {s['student_name']} ({s['timestamp']})": s["id"] for s in submissions}
+            selected_del = st.selectbox("삭제할 제출 항목 선택", ["선택 안 함"] + list(del_options.keys()))
+            if selected_del != "선택 안 함":
+                if st.button("🗑️ 선택한 항목 삭제"):
+                    target_id = del_options[selected_del]
+                    updated = [s for s in submissions if s.get("id") != target_id]
+                    save_submissions(updated)
+                    st.success("삭제되었습니다.")
+                    st.rerun()
+
+    elif admin_pw:
+        st.error("비밀번호가 일치하지 않습니다.")
