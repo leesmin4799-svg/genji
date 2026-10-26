@@ -24,14 +24,24 @@ st.markdown("""
         color: #4a355c;
         font-family: 'Noto Serif KR', serif;
     }
+    /* 원문 감상 박스 글자색 강제 고정 (다크모드 충돌 방지) */
     .poem-box {
-        background-color: #f4efe6;
+        background-color: #f4efe6 !important;
         border-left: 5px solid #6b4c7b;
         padding: 18px;
         border-radius: 6px;
         margin-bottom: 15px;
         line-height: 1.7;
+        color: #2c2233 !important;
     }
+    .poem-box * {
+        color: #2c2233 !important;
+    }
+    /* 강조 글자 색상 유지 */
+    .poem-box span[style*="color:#b83b5e"] {
+        color: #b83b5e !important;
+    }
+    
     .gallery-card {
         background-color: #fffdf9;
         border: 1px solid #dccaa6;
@@ -40,6 +50,7 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 2px 4px 10px rgba(0,0,0,0.04);
         margin-bottom: 20px;
+        color: #2c2233 !important;
     }
     .penname {
         color: #7b588c;
